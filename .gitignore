@@ -3,3 +3,4 @@ microproxy
 *.sublime*
 *.swp
 bin/
+*.tgz

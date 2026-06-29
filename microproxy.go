@@ -186,6 +186,20 @@ func setAllowedConnectPortsHandler(conf *Configuration, proxy *goproxy.ProxyHttp
 	}
 }
 
+func setAllowedHostsHandler(conf *Configuration, proxy *goproxy.ProxyHttpServer) {
+	if conf.AllowedHosts != nil && len(conf.AllowedHosts) > 0 {
+		rx := "^(" + strings.Join(conf.AllowedHosts, "|") + "):"
+		if proxy.Verbose {
+			proxy.Logger.Printf("Allowed hosts regex: \"%s\"\n", rx)
+		}
+		proxy.OnRequest(goproxy.Not(goproxy.ReqHostMatches(regexp.MustCompile(rx)))).HandleConnect(goproxy.AlwaysReject)
+		proxy.OnRequest(goproxy.Not(goproxy.ReqHostMatches(regexp.MustCompile(rx)))).DoFunc(
+			func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
+				return req, goproxy.NewResponse(req, goproxy.ContentTypeHtml, http.StatusForbidden, "Access denied")
+			})
+	}
+}
+
 func setForwardedForHeaderHandler(conf *Configuration, proxy *goproxy.ProxyHttpServer) {
 	f := func(req *http.Request, ctx *goproxy.ProxyCtx) (*http.Request, *http.Response) {
 		ip, _, err := net.SplitHostPort(req.RemoteAddr)
@@ -338,7 +352,7 @@ func setActivityLog(conf *Configuration, proxy *goproxy.ProxyHttpServer) {
 }
 
 func setSignalHandler(conf *Configuration, proxy *goproxy.ProxyHttpServer, logger *ProxyLogger) {
-	signalChannel := make(chan os.Signal)
+	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM, syscall.SIGUSR1)
 
 	signalHandler := func() {
@@ -460,6 +474,7 @@ func main() {
 
 	setHTTPLoggingHandler(proxy, logger)
 	setForwardProxy(conf, proxy)
+	setAllowedHostsHandler(conf, proxy)
 	setAllowedConnectPortsHandler(conf, proxy)
 	setAllowedNetworksHandler(conf, proxy)
 	setForwardedForHeaderHandler(conf, proxy)

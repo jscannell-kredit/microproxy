@@ -15,6 +15,7 @@ type Configuration struct {
 	ActivityLog         string     `toml:"activity_log"`
 	AllowedConnectPorts []int      `toml:"allowed_connect_ports"`
 	AllowedNetworks     []string   `toml:"allowed_networks"`
+	AllowedHosts        []string   `toml:"allowed_hosts"`
 	DisallowedNetworks  []string   `toml:"disallowed_networks"`
 	AuthRealm           string     `toml:"auth_realm"`
 	AuthType            string     `toml:"auth_type"`
@@ -116,7 +117,7 @@ func newConfigurationFromFile(path string) *Configuration {
 
 func newConfiguration(data io.Reader) *Configuration {
 	var conf Configuration
-	if _, err := toml.DecodeReader(data, &conf); err != nil {
+	if _, err := toml.NewDecoder(data).Decode(&conf); err != nil {
 		log.Fatalf("Couldn't parse configuration file: %v", err)
 	}
 
@@ -137,13 +138,13 @@ func newConfiguration(data io.Reader) *Configuration {
 	validateIP(conf.BindIP)
 
 	// by default allow connect only to the https protocol port
-	if conf.AllowedConnectPorts == nil || len(conf.AllowedConnectPorts) == 0 {
+	if conf.AllowedConnectPorts == nil {
 		conf.AllowedConnectPorts = make([]int, 1)
 		conf.AllowedConnectPorts[0] = defaultAllowedConnectPort
 	}
 
 	if conf.AuthType == "" && conf.AuthFile != "" {
-		log.Fatal("missed mandatoty configuration parameter 'auth_type'")
+		log.Fatal("missing mandatory configuration parameter 'auth_type'")
 	}
 
 	// by default set X-Forwarded-For header
